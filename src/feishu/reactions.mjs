@@ -6,19 +6,22 @@ export async function addWorkingReaction(messageId, config, log) {
   }
 
   try {
-    const result = await runLarkCliJson([
-      "im",
-      "reactions",
-      "create",
-      "--params",
-      JSON.stringify({ message_id: messageId }),
-      "--data",
-      JSON.stringify({ reaction_type: { emoji_type: config.workingReaction } }),
-      "--as",
-      "bot",
-      "--format",
-      "json",
-    ]);
+    const result = await runLarkCliJson(
+      [
+        "im",
+        "reactions",
+        "create",
+        "--params",
+        JSON.stringify({ message_id: messageId }),
+        "--data",
+        JSON.stringify({ reaction_type: { emoji_type: config.workingReaction } }),
+        "--as",
+        "bot",
+        "--format",
+        "json",
+      ],
+      { larkProfile: config.larkProfile },
+    );
     const reactionId = extractReactionId(result);
     if (!reactionId) {
       log?.(`working reaction created without reaction_id for ${messageId}`);
@@ -48,20 +51,23 @@ export async function clearWorkingReactions(events, config, log) {
     }
 
     try {
-      await runLarkCliJson([
-        "im",
-        "reactions",
-        "delete",
-        "--params",
-        JSON.stringify({
-          message_id: reaction.message_id,
-          reaction_id: reaction.reaction_id,
-        }),
-        "--as",
-        "bot",
-        "--format",
-        "json",
-      ]);
+      await runLarkCliJson(
+        [
+          "im",
+          "reactions",
+          "delete",
+          "--params",
+          JSON.stringify({
+            message_id: reaction.message_id,
+            reaction_id: reaction.reaction_id,
+          }),
+          "--as",
+          "bot",
+          "--format",
+          "json",
+        ],
+        { larkProfile: config.larkProfile },
+      );
     } catch (error) {
       log?.(`failed to clear working reaction from ${reaction.message_id}: ${error.message}`);
     }
@@ -80,19 +86,22 @@ export async function addErrorReactions(events, config, log) {
     }
 
     try {
-      await runLarkCliJson([
-        "im",
-        "reactions",
-        "create",
-        "--params",
-        JSON.stringify({ message_id: messageId }),
-        "--data",
-        JSON.stringify({ reaction_type: { emoji_type: config.errorReaction } }),
-        "--as",
-        "bot",
-        "--format",
-        "json",
-      ]);
+      await runLarkCliJson(
+        [
+          "im",
+          "reactions",
+          "create",
+          "--params",
+          JSON.stringify({ message_id: messageId }),
+          "--data",
+          JSON.stringify({ reaction_type: { emoji_type: config.errorReaction } }),
+          "--as",
+          "bot",
+          "--format",
+          "json",
+        ],
+        { larkProfile: config.larkProfile },
+      );
     } catch (error) {
       log?.(`failed to add error reaction to ${messageId}: ${error.message}`);
     }
@@ -108,4 +117,3 @@ function extractReactionId(result) {
     ""
   );
 }
-

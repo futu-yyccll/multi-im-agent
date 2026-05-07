@@ -32,6 +32,8 @@ export async function handleCommand(session, event, context) {
 
   if (command === "/status") {
     return [
+      `bot: ${context.config.botName}`,
+      `lark_profile: ${context.config.larkProfile}`,
       `session: ${session.id}`,
       `chat_id: ${event.chat_id || session.id}`,
       `transcript: ${session.transcriptPath}`,

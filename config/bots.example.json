@@ -1,0 +1,17 @@
+{
+  "bots": [
+    {
+      "name": "market",
+      "larkProfile": "market-bot",
+      "dataDir": ".market-agent/bots/market",
+      "logPath": ".market-agent/bots/market/feishu-bot.log",
+      "env": {
+        "FEISHU_AGENT_PROVIDER": "claude",
+        "FEISHU_AGENT_MODEL": "claude-opus-4-6",
+        "FEISHU_AGENT_CONTEXT_FILES": "prompts/market-personality.md,prompts/daily-sentiment-report.md",
+        "FEISHU_AGENT_COMMAND": "node scripts/feishu-agent.mjs",
+        "FEISHU_RESPOND_IN_GROUPS": "1"
+      }
+    }
+  ]
+}

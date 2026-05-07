@@ -2,8 +2,19 @@ import path from "node:path";
 
 export function loadDaemonConfig(env = process.env, cwd = process.cwd()) {
   const dataDir = env.FEISHU_DATA_DIR || path.join(cwd, ".market-agent");
+  const botName = env.FEISHU_BOT_NAME || "";
+  const larkProfile = env.FEISHU_LARK_PROFILE || "";
+  if (!botName) {
+    throw new Error("FEISHU_BOT_NAME is required. Start bots with scripts/feishu-bots.mjs.");
+  }
+  if (!larkProfile) {
+    throw new Error("FEISHU_LARK_PROFILE is required. Configure larkProfile in .market-agent/bots.json.");
+  }
+
   return {
     cwd,
+    botName,
+    larkProfile,
     eventTypes: env.FEISHU_EVENT_TYPES || "im.message.receive_v1",
     staticReply: env.FEISHU_STATIC_REPLY || "Bot daemon is online. I received: {content}",
     agentCommand: env.FEISHU_AGENT_COMMAND || "",

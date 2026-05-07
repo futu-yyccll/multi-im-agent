@@ -285,7 +285,10 @@ async function runScheduledAgentJob(job, due, config, { sessions, log }, attempt
         deliveryReply,
         job.replyFormat || choosePreferredFormat(deliveryReply, config.replyFormat),
         log,
-        { idempotencyKey: safeIdempotencyKey(`${job.id}-${due.runKey}`) },
+        {
+          idempotencyKey: safeIdempotencyKey(`${job.id}-${due.runKey}`),
+          larkProfile: config.larkProfile,
+        },
       );
     }
 

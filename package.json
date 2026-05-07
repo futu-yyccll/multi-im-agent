@@ -4,12 +4,11 @@
   "type": "module",
   "scripts": {
     "check": "find scripts src -name '*.mjs' -print -exec node --check {} \\;",
-    "start:feishu": "node scripts/feishu-bot-daemon.mjs",
-    "start:market-bot": "FEISHU_AGENT_CONTEXT_FILES=prompts/market-personality.md FEISHU_AGENT_COMMAND='node scripts/feishu-agent.mjs' node scripts/feishu-bot-daemon.mjs",
-    "service:start": "node scripts/feishu-service.mjs start",
-    "service:stop": "node scripts/feishu-service.mjs stop",
-    "service:restart": "node scripts/feishu-service.mjs restart",
-    "service:status": "node scripts/feishu-service.mjs status",
+    "bots": "node scripts/feishu-bots.mjs",
+    "bots:start": "node scripts/feishu-bots.mjs start",
+    "bots:stop": "node scripts/feishu-bots.mjs stop",
+    "bots:restart": "node scripts/feishu-bots.mjs restart",
+    "bots:status": "node scripts/feishu-bots.mjs status",
     "agent": "node scripts/feishu-agent.mjs"
   }
 }
