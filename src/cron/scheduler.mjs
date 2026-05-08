@@ -283,7 +283,7 @@ async function runScheduledAgentJob(job, due, config, { sessions, log }, attempt
       usedFormat = await sendMessage(
         chatId,
         deliveryReply,
-        job.replyFormat || choosePreferredFormat(deliveryReply, config.replyFormat),
+        chooseScheduledReplyFormat(deliveryReply, job.replyFormat || config.replyFormat),
         log,
         {
           idempotencyKey: safeIdempotencyKey(`${job.id}-${due.runKey}`),
@@ -309,6 +309,12 @@ async function runScheduledAgentJob(job, due, config, { sessions, log }, attempt
   }
 
   return { reply: deliveryReply, fullReply: reply, text, fullText, usedFormat };
+}
+
+function chooseScheduledReplyFormat(reply, configuredFormat) {
+  return configuredFormat === "agent"
+    ? choosePreferredFormat(reply, "agent")
+    : configuredFormat || choosePreferredFormat(reply, "agent");
 }
 
 async function prepareScheduledDeliveryReply(reply, { config, chatId, job, due }) {
