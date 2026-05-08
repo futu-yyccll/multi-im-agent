@@ -11,6 +11,7 @@ const MAX_TEXT_CHUNKS = 200;
 const CHUNK_DOCTOR_MAX_TRIES = 5;
 const CHUNK_DOCTOR_TIMEOUT_MS = 90000;
 const FAILED_CHUNKS_DIR = ".market-agent/failed-chunks";
+const IDEMPOTENCY_KEY_MAX_LENGTH = 50;
 
 export async function sendReply(messageId, reply, preferredFormat, log, options = {}) {
   const formats = formatOrder(reply, preferredFormat);
@@ -382,5 +383,7 @@ function partKey(baseKey = "", index = 0) {
   if (!baseKey) {
     return "";
   }
-  return index === 0 ? baseKey : `${baseKey}-${index + 1}`;
+  const suffix = index === 0 ? "" : `-${index + 1}`;
+  const prefixLength = Math.max(0, IDEMPOTENCY_KEY_MAX_LENGTH - suffix.length);
+  return `${baseKey.slice(0, prefixLength)}${suffix}`;
 }
