@@ -42,6 +42,8 @@ export function startFeishuBotDaemon(config = loadDaemonConfig()) {
       config.eventTypes,
       "--compact",
       "--quiet",
+      "--as",
+      "bot",
     ]),
     {
       stdio: ["ignore", "pipe", "pipe"],
@@ -205,24 +207,27 @@ async function processSession(session, context) {
           event: lastEvent,
           source: "chat",
         });
-        if (!replyToPlainText(deliveryReply).trim()) {
-          log(`empty reply for ${messageId}; skipped`);
-          continue;
+        const isEmpty = !replyToPlainText(deliveryReply).trim();
+        const finalReply = isEmpty ? buildEmptyReplyFallback() : deliveryReply;
+        if (isEmpty) {
+          log(`empty reply for ${messageId}; sending fallback`);
+          failed = true;
         }
 
         const usedFormat = await sendReply(
           messageId,
-          deliveryReply,
-          choosePreferredFormat(deliveryReply, config.replyFormat),
+          finalReply,
+          choosePreferredFormat(finalReply, config.replyFormat),
           log,
           { larkProfile: config.larkProfile },
         );
-        await sessions.appendTranscript(session, "assistant", replyToPlainText(deliveryReply), {
+        await sessions.appendTranscript(session, "assistant", replyToPlainText(finalReply), {
           reply_to_message_id: messageId,
           batch_size: batch.length,
           reply_format: usedFormat,
-          requested_format: getReplyFormat(deliveryReply) || config.replyFormat,
+          requested_format: getReplyFormat(finalReply) || config.replyFormat,
           stored_full_report: isMarketReport(reply),
+          empty_fallback: isEmpty || undefined,
         });
         log(`replied to ${messageId} session=${session.id} batch=${batch.length}`);
       } catch (error) {
@@ -274,6 +279,14 @@ async function prepareDeliveryReply(reply, { reports, session, event, source }) 
     },
   });
   return buildBriefingReply(reply);
+}
+
+function buildEmptyReplyFallback() {
+  return {
+    format: "text",
+    content:
+      "I didn't produce a usable answer this turn (the model returned only meta-text or empty output). Please retry or rephrase.",
+  };
 }
 
 async function sendFailureReply(messageId, error, context) {

@@ -63,7 +63,7 @@ function runClaude(prompt, config) {
   const args = [
     "--print",
     "--permission-mode",
-    "dontAsk",
+    "auto",
     "--tools",
     config.claudeTools,
     "--system-prompt",
@@ -86,7 +86,7 @@ function runClaudeStream(prompt, config) {
     "--include-partial-messages",
     "--verbose",
     "--permission-mode",
-    "dontAsk",
+    "auto",
     "--tools",
     config.claudeTools,
     "--system-prompt",

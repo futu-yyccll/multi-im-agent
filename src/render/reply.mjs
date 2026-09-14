@@ -1,8 +1,8 @@
 export function parseAgentReply(output) {
-  const trimmed = output.trim();
-  const jsonText = extractJsonObject(trimmed);
+  const sanitized = stripMetaArtifacts(output).trim();
+  const jsonText = extractJsonObject(sanitized);
   if (!jsonText) {
-    return trimmed;
+    return sanitized;
   }
 
   const parsed = tryParseJson(jsonText);
@@ -10,7 +10,13 @@ export function parseAgentReply(output) {
     return parsed;
   }
 
-  return trimmed;
+  return sanitized;
+}
+
+function stripMetaArtifacts(text) {
+  return String(text || "")
+    .replace(/<system-reminder>[\s\S]*?<\/system-reminder>/gi, "")
+    .replace(/<\/?system-reminder>/gi, "");
 }
 
 function tryParseJson(text) {

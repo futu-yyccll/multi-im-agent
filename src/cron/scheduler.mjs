@@ -65,7 +65,11 @@ export async function setCronJobEnabled(config, id, enabled) {
   return job;
 }
 
-export async function runCronJobNow(config, job, { sessions, log = () => {} } = {}) {
+export async function runCronJobNow(
+  config,
+  job,
+  { sessions, log = () => {}, deliver = false, appendTranscript = false } = {},
+) {
   const normalized = normalizeJobs([{
     ...job,
     id: job.id || `test-${Date.now()}`,
@@ -81,10 +85,7 @@ export async function runCronJobNow(config, job, { sessions, log = () => {} } = 
     config,
     { sessions, log },
     1,
-    {
-      deliver: false,
-      appendTranscript: false,
-    },
+    { deliver, appendTranscript },
   );
 }
 

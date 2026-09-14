@@ -9,6 +9,7 @@ export function loadAgentConfig(env = process.env, cwd = process.cwd()) {
     contextFiles: contextFiles.length > 0 ? contextFiles : csvList(contextFile),
     outputFormat: env.FEISHU_AGENT_OUTPUT_FORMAT || "text",
     claudeTools: env.FEISHU_CLAUDE_TOOLS ?? "",
+    operatorUserId: env.FEISHU_OPERATOR_USER_ID || "",
     claudeStream: env.FEISHU_CLAUDE_STREAM === "1",
     heartbeatTimeoutMs: Number(env.FEISHU_AGENT_HEARTBEAT_TIMEOUT_MS || 300000),
     killGraceMs: Number(env.FEISHU_AGENT_KILL_GRACE_MS || 10000),

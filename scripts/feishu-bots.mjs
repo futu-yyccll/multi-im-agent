@@ -129,7 +129,7 @@ function workerEnv(bot) {
 function defaultBotEnv() {
   return {
     FEISHU_AGENT_PROVIDER: process.env.FEISHU_AGENT_PROVIDER || "claude",
-    FEISHU_AGENT_MODEL: process.env.FEISHU_AGENT_MODEL || "claude-opus-4-6",
+    FEISHU_AGENT_MODEL: process.env.FEISHU_AGENT_MODEL || "claude-opus-4-7",
     FEISHU_AGENT_SYSTEM_PROMPT:
       process.env.FEISHU_AGENT_SYSTEM_PROMPT || "You are a concise market-analysis assistant.",
     FEISHU_AGENT_CONTEXT_FILES:
