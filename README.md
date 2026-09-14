@@ -1,5 +1,7 @@
 # Multi IM Agent
 
+**English** | [简体中文](README.zh-CN.md)
+
 A multi-bot Feishu/Lark agent runtime. Every bot runs through the same
 **supervisor model**: one configured bot maps to one `lark-cli` profile and one
 long-running worker process. Workers listen for Feishu messages, hand them to an
