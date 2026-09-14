@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -7,6 +8,8 @@ import { loadAgentConfig } from "../config/agent.mjs";
 import { sendMessage } from "../feishu/replies.mjs";
 import { choosePreferredFormat, parseAgentReply, replyToPlainText } from "../render/reply.mjs";
 import { buildBriefingReply, buildWeeklyMemoryPrompt, createReportStore, isMarketReport } from "../runtime/reports.mjs";
+
+const IDEMPOTENCY_KEY_MAX_LENGTH = 50;
 
 export function startCronScheduler(config, { sessions, log = () => {} } = {}) {
   if (!config.cronEnabled) {
@@ -62,7 +65,11 @@ export async function setCronJobEnabled(config, id, enabled) {
   return job;
 }
 
-export async function runCronJobNow(config, job, { sessions, log = () => {} } = {}) {
+export async function runCronJobNow(
+  config,
+  job,
+  { sessions, log = () => {}, deliver = false, appendTranscript = false } = {},
+) {
   const normalized = normalizeJobs([{
     ...job,
     id: job.id || `test-${Date.now()}`,
@@ -78,10 +85,7 @@ export async function runCronJobNow(config, job, { sessions, log = () => {} } = 
     config,
     { sessions, log },
     1,
-    {
-      deliver: false,
-      appendTranscript: false,
-    },
+    { deliver, appendTranscript },
   );
 }
 
@@ -283,9 +287,12 @@ async function runScheduledAgentJob(job, due, config, { sessions, log }, attempt
       usedFormat = await sendMessage(
         chatId,
         deliveryReply,
-        job.replyFormat || choosePreferredFormat(deliveryReply, config.replyFormat),
+        chooseScheduledReplyFormat(deliveryReply, job.replyFormat || config.replyFormat),
         log,
-        { idempotencyKey: safeIdempotencyKey(`${job.id}-${due.runKey}`) },
+        {
+          idempotencyKey: safeIdempotencyKey(`${job.id}-${due.runKey}`),
+          larkProfile: config.larkProfile,
+        },
       );
     }
 
@@ -306,6 +313,12 @@ async function runScheduledAgentJob(job, due, config, { sessions, log }, attempt
   }
 
   return { reply: deliveryReply, fullReply: reply, text, fullText, usedFormat };
+}
+
+function chooseScheduledReplyFormat(reply, configuredFormat) {
+  return configuredFormat === "agent"
+    ? choosePreferredFormat(reply, "agent")
+    : configuredFormat || choosePreferredFormat(reply, "agent");
 }
 
 async function prepareScheduledDeliveryReply(reply, { config, chatId, job, due }) {
@@ -619,9 +632,20 @@ function safeFileName(value) {
 }
 
 function safeIdempotencyKey(value) {
-  return String(value)
+  const normalized = String(value)
     .replace(/[^a-zA-Z0-9_-]/g, "_")
-    .slice(0, 64);
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  if (normalized.length <= IDEMPOTENCY_KEY_MAX_LENGTH) {
+    return normalized;
+  }
+
+  const hash = createHash("sha1")
+    .update(String(value))
+    .digest("hex")
+    .slice(0, 10);
+  const prefixLength = IDEMPOTENCY_KEY_MAX_LENGTH - hash.length - 1;
+  return `${normalized.slice(0, prefixLength)}_${hash}`;
 }
 
 function pad(value) {

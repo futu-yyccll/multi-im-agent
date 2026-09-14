@@ -4,14 +4,16 @@ import path from "node:path";
 
 import { compactArgs } from "../shared/process.mjs";
 import { formatOrder, renderReplyParts, replyToPlainText } from "../render/reply.mjs";
+import { larkProfileArgs } from "./cli.mjs";
 
 const TEXT_CHUNK_SIZE = 2800;
 const MAX_TEXT_CHUNKS = 200;
 const CHUNK_DOCTOR_MAX_TRIES = 5;
 const CHUNK_DOCTOR_TIMEOUT_MS = 90000;
 const FAILED_CHUNKS_DIR = ".market-agent/failed-chunks";
+const IDEMPOTENCY_KEY_MAX_LENGTH = 50;
 
-export async function sendReply(messageId, reply, preferredFormat, log) {
+export async function sendReply(messageId, reply, preferredFormat, log, options = {}) {
   const formats = formatOrder(reply, preferredFormat);
   const chunks = formats[0] === "card" ? [reply] : splitLargeTextReply(reply);
   if (chunks.length > 1) {
@@ -22,7 +24,7 @@ export async function sendReply(messageId, reply, preferredFormat, log) {
         index,
         total: chunks.length,
         log,
-        send: (rendered) => replyToMessage(messageId, rendered),
+        send: (rendered) => replyToMessage(messageId, rendered, options.larkProfile),
         target: `message ${messageId}`,
       });
     }
@@ -34,7 +36,7 @@ export async function sendReply(messageId, reply, preferredFormat, log) {
   for (const format of formats) {
     try {
       for (const rendered of renderReplyParts(reply, format)) {
-        await replyToMessage(messageId, rendered);
+        await replyToMessage(messageId, rendered, options.larkProfile);
       }
       return format;
     } catch (error) {
@@ -57,7 +59,8 @@ export async function sendMessage(chatId, reply, preferredFormat, log, options =
         index,
         total: chunks.length,
         log,
-        send: (rendered) => messageToChat(chatId, rendered, partKey(options.idempotencyKey, index)),
+        send: (rendered) =>
+          messageToChat(chatId, rendered, partKey(options.idempotencyKey, index), options.larkProfile),
         target: `chat ${chatId}`,
       });
     }
@@ -70,7 +73,7 @@ export async function sendMessage(chatId, reply, preferredFormat, log, options =
     try {
       const renderedParts = renderReplyParts(reply, format);
       for (const [index, rendered] of renderedParts.entries()) {
-        await messageToChat(chatId, rendered, partKey(options.idempotencyKey, index));
+        await messageToChat(chatId, rendered, partKey(options.idempotencyKey, index), options.larkProfile);
       }
       return format;
     } catch (error) {
@@ -300,11 +303,12 @@ function stripMarkdownFence(text) {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
-function replyToMessage(messageId, rendered) {
+function replyToMessage(messageId, rendered, larkProfile = "") {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "lark-cli",
       compactArgs([
+        ...larkProfileArgs(larkProfile),
         "im",
         "+messages-reply",
         "--message-id",
@@ -336,11 +340,12 @@ function replyToMessage(messageId, rendered) {
   });
 }
 
-function messageToChat(chatId, rendered, idempotencyKey = "") {
+function messageToChat(chatId, rendered, idempotencyKey = "", larkProfile = "") {
   return new Promise((resolve, reject) => {
     const child = spawn(
       "lark-cli",
       compactArgs([
+        ...larkProfileArgs(larkProfile),
         "im",
         "+messages-send",
         "--chat-id",
@@ -378,5 +383,7 @@ function partKey(baseKey = "", index = 0) {
   if (!baseKey) {
     return "";
   }
-  return index === 0 ? baseKey : `${baseKey}-${index + 1}`;
+  const suffix = index === 0 ? "" : `-${index + 1}`;
+  const prefixLength = Math.max(0, IDEMPOTENCY_KEY_MAX_LENGTH - suffix.length);
+  return `${baseKey.slice(0, prefixLength)}${suffix}`;
 }

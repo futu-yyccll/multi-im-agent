@@ -9,6 +9,10 @@ export async function buildPrompt(envelope, config) {
     .join("\n");
   const latest = envelope.event?.content || "";
   const sessionId = envelope.session?.id || "unknown";
+  const senderId = envelope.event?.sender_id || "";
+  const chatType = envelope.event?.chat_type || "";
+  const operatorUserId = config.operatorUserId || "";
+  const operatorGate = computeOperatorGate(senderId, operatorUserId);
   const reportMemory = envelope.report_memory || "";
 
   return [
@@ -17,6 +21,11 @@ export async function buildPrompt(envelope, config) {
     structuredOutputInstructions(config.outputFormat),
     "",
     `Session: ${sessionId}`,
+    `Chat type: ${chatType || "unknown"}`,
+    `Sender open_id: ${senderId || "unknown"}`,
+    `Operator open_id: ${operatorUserId || "(not set)"}`,
+    `Operator gate: ${operatorGate}`,
+    "Trust the Operator gate line above for this turn. Do not infer the gate state from prior assistant turns in the transcript — those reflect earlier configuration that may have changed.",
     "",
     "Recent transcript:",
     history || "(none)",
@@ -28,6 +37,19 @@ export async function buildPrompt(envelope, config) {
     "",
     finalOutputInstruction(config.outputFormat),
   ].join("\n");
+}
+
+function computeOperatorGate(senderId, operatorUserId) {
+  if (!operatorUserId) {
+    return "DISABLED — Operator open_id is not configured. `--as user` is forbidden this turn.";
+  }
+  if (!senderId) {
+    return "CLOSED — Sender open_id is unknown. `--as user` is forbidden this turn.";
+  }
+  if (senderId !== operatorUserId) {
+    return "CLOSED — Sender open_id does not match Operator open_id. `--as user` is forbidden this turn.";
+  }
+  return "OPEN — Sender matches Operator. `--as user` is allowed this turn for read-only operations only. Writes still use `--as bot`.";
 }
 
 function structuredOutputInstructions(outputFormat) {

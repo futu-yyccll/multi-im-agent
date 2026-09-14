@@ -5,6 +5,7 @@ import { runAgentCommand } from "../agent/command.mjs";
 import { loadDaemonConfig } from "../config/daemon.mjs";
 import { startCronScheduler } from "../cron/scheduler.mjs";
 import { handleCommand } from "./commands.mjs";
+import { larkProfileArgs } from "../feishu/cli.mjs";
 import { addErrorReactions, addWorkingReaction, clearWorkingReactions } from "../feishu/reactions.mjs";
 import { sendReply } from "../feishu/replies.mjs";
 import {
@@ -18,6 +19,7 @@ import {
 } from "../runtime/reports.mjs";
 import { createSessionStore } from "../runtime/sessions.mjs";
 import { createLogger } from "../shared/log.mjs";
+import { compactArgs } from "../shared/process.mjs";
 import {
   choosePreferredFormat,
   getReplyFormat,
@@ -26,20 +28,23 @@ import {
 } from "../render/reply.mjs";
 
 export function startFeishuBotDaemon(config = loadDaemonConfig()) {
-  const log = createLogger("feishu-bot");
+  const log = createLogger(`feishu-bot:${config.botName}`);
   const sessions = createSessionStore(config);
   const reports = createReportStore(config);
   const seenMessages = new Set();
   const eventProcess = spawn(
     "lark-cli",
-    [
+    compactArgs([
+      ...larkProfileArgs(config.larkProfile),
       "event",
       "+subscribe",
       "--event-types",
       config.eventTypes,
       "--compact",
       "--quiet",
-    ],
+      "--as",
+      "bot",
+    ]),
     {
       stdio: ["ignore", "pipe", "pipe"],
     },
@@ -72,7 +77,7 @@ export function startFeishuBotDaemon(config = loadDaemonConfig()) {
     });
   }
 
-  log(`listening for ${config.eventTypes}`);
+  log(`listening for ${config.eventTypes} profile=${config.larkProfile}`);
   return eventProcess;
 }
 
@@ -110,7 +115,13 @@ async function handleLine(line, context, seenMessages) {
   const reportFollowupReply = await handleReportFollowup(session, event, context);
   if (reportFollowupReply) {
     try {
-      await sendReply(messageId, reportFollowupReply, choosePreferredFormat(reportFollowupReply, config.replyFormat), log);
+      await sendReply(
+        messageId,
+        reportFollowupReply,
+        choosePreferredFormat(reportFollowupReply, config.replyFormat),
+        log,
+        { larkProfile: config.larkProfile },
+      );
       await sessions.appendTranscript(session, "assistant", replyToPlainText(reportFollowupReply), {
         message_id: messageId,
         report_followup: true,
@@ -130,6 +141,7 @@ async function handleLine(line, context, seenMessages) {
         commandReply,
         choosePreferredFormat(commandReply, config.replyFormat),
         log,
+        { larkProfile: config.larkProfile },
       );
       await sessions.appendTranscript(session, "assistant", commandReply, {
         message_id: messageId,
@@ -195,23 +207,27 @@ async function processSession(session, context) {
           event: lastEvent,
           source: "chat",
         });
-        if (!replyToPlainText(deliveryReply).trim()) {
-          log(`empty reply for ${messageId}; skipped`);
-          continue;
+        const isEmpty = !replyToPlainText(deliveryReply).trim();
+        const finalReply = isEmpty ? buildEmptyReplyFallback() : deliveryReply;
+        if (isEmpty) {
+          log(`empty reply for ${messageId}; sending fallback`);
+          failed = true;
         }
 
         const usedFormat = await sendReply(
           messageId,
-          deliveryReply,
-          choosePreferredFormat(deliveryReply, config.replyFormat),
+          finalReply,
+          choosePreferredFormat(finalReply, config.replyFormat),
           log,
+          { larkProfile: config.larkProfile },
         );
-        await sessions.appendTranscript(session, "assistant", replyToPlainText(deliveryReply), {
+        await sessions.appendTranscript(session, "assistant", replyToPlainText(finalReply), {
           reply_to_message_id: messageId,
           batch_size: batch.length,
           reply_format: usedFormat,
-          requested_format: getReplyFormat(deliveryReply) || config.replyFormat,
+          requested_format: getReplyFormat(finalReply) || config.replyFormat,
           stored_full_report: isMarketReport(reply),
+          empty_fallback: isEmpty || undefined,
         });
         log(`replied to ${messageId} session=${session.id} batch=${batch.length}`);
       } catch (error) {
@@ -265,6 +281,14 @@ async function prepareDeliveryReply(reply, { reports, session, event, source }) 
   return buildBriefingReply(reply);
 }
 
+function buildEmptyReplyFallback() {
+  return {
+    format: "text",
+    content:
+      "I didn't produce a usable answer this turn (the model returned only meta-text or empty output). Please retry or rephrase.",
+  };
+}
+
 async function sendFailureReply(messageId, error, context) {
   const hint = classifyFailureHint(error);
   const message = [
@@ -276,7 +300,9 @@ async function sendFailureReply(messageId, error, context) {
   ].join("\n");
 
   try {
-    await sendReply(messageId, { format: "text", content: message }, "text", context.log);
+    await sendReply(messageId, { format: "text", content: message }, "text", context.log, {
+      larkProfile: context.config.larkProfile,
+    });
   } catch (replyError) {
     context.log(`failed to send failure reply for ${messageId}: ${replyError.message}`);
   }

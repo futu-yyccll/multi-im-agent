@@ -1,8 +1,12 @@
 import { spawn } from "node:child_process";
 
-export function runLarkCliJson(args) {
+export function larkProfileArgs(profile = "") {
+  return profile ? ["--profile", profile] : [];
+}
+
+export function runLarkCliJson(args, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn("lark-cli", args, {
+    const child = spawn("lark-cli", [...larkProfileArgs(options.larkProfile), ...args], {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -29,4 +33,3 @@ export function runLarkCliJson(args) {
     });
   });
 }
-
